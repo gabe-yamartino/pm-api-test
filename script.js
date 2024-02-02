@@ -20,31 +20,44 @@ app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 app.get('/', (req, res) => res.send('Hello, I write data to file. Send them requests!'));
 
 app.post('/write', (req, res) => {
-
   let extension = req.body.fileExtension || defaultFileExtension,
     parsedResponse = req.body.responseData ? JSON.parse(req.body.responseData) : '',
     token = parsedResponse && parsedResponse.data ? parsedResponse.data.token : '',
     fsMode = req.body.mode || DEFAULT_MODE,
     uniqueIdentifier = req.body.uniqueIdentifier ? typeof req.body.uniqueIdentifier === 'boolean' ? Date.now() : req.body.uniqueIdentifier : false,
     filename = `${req.body.requestName}${uniqueIdentifier || ''}`,
-    filePath = `${path.join(folderPath, filename)}.${extension}`,
+    filePath = path.join(folderPath, `${filename}.${extension}`),
     options = req.body.options || undefined;
 
   console.log("TOKEN: ", token);
 
-  fs.readFile(filePath, 'utf8', (err, data) => {
+  fs.access(filePath, fs.constants.F_OK, (err) => {
     if (err) {
-      console.log(err);
-      res.send('Error');
-    } else {
-      let tokens = JSON.parse(data || '[]');
-      tokens.push({'token': token});
-      fs.writeFile(filePath, JSON.stringify(tokens, null, 2), options, (err) => {
+      const initialData = [{'token': token}];
+      fs.writeFile(filePath, JSON.stringify(initialData, null, 2), options, (err) => {
         if (err) {
           console.log(err);
           res.send('Error');
         } else {
           res.send('Success');
+        }
+      });
+    } else {
+      fs.readFile(filePath, 'utf8', (err, data) => {
+        if (err) {
+          console.log(err);
+          res.send('Error');
+        } else {
+          let tokens = JSON.parse(data || '[]');
+          tokens.push({'token': token});
+          fs.writeFile(filePath, JSON.stringify(tokens, null, 2), options, (err) => {
+            if (err) {
+              console.log(err);
+              res.send('Error');
+            } else {
+              res.send('Success');
+            }
+          });
         }
       });
     }
